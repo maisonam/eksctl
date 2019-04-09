@@ -167,8 +167,9 @@ func NewCreateClusterLoader(rc *ResourceCmd, ngFilter *NodeGroupFilter) ClusterC
 			return fmt.Errorf("status fields are read-only")
 		}
 
-		return ngFilter.ForEach(l.ClusterConfig.NodeGroups, func(i int, ng *api.NodeGroup) error {
-			if l.Command.Flag("ssh-public-key").Changed {
+		return ngFilter.ForEach(l.spec.NodeGroups, func(i int, ng *api.NodeGroup) error {
+			sshPublicKey := cmd.Flag("ssh-public-key")
+			if sshPublicKey != nil && sshPublicKey.Changed {
 				if *ng.SSH.PublicKeyPath == "" {
 					return fmt.Errorf("--ssh-public-key must be non-empty string")
 				}
@@ -231,9 +232,9 @@ func NewCreateNodeGroupLoader(rc *ResourceCmd, ngFilter *NodeGroupFilter) Cluste
 			return ErrMustBeSet("--cluster")
 		}
 
-		return ngFilter.ForEach(l.ClusterConfig.NodeGroups, func(i int, ng *api.NodeGroup) error {
-
-			if l.Command.Flag("ssh-public-key").Changed {
+		return ngFilter.ForEach(spec.NodeGroups, func(i int, ng *api.NodeGroup) error {
+			sshPublicKey := cmd.Flag("ssh-public-key")
+			if sshPublicKey != nil && sshPublicKey.Changed {
 				if *ng.SSH.PublicKeyPath == "" {
 					return fmt.Errorf("--ssh-public-key must be non-empty string")
 				}
