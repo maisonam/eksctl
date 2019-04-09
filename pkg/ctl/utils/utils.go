@@ -17,6 +17,7 @@ func Command(flagGrouping *cmdutils.FlagGrouping) *cobra.Command {
 	cmdutils.AddResourceCmd(flagGrouping, verbCmd, updateAWSNodeCmd)
 	cmdutils.AddResourceCmd(flagGrouping, verbCmd, updateCoreDNSCmd)
 	cmdutils.AddResourceCmd(flagGrouping, verbCmd, installCoreDNSCmd)
+	cmdutils.AddResourceCmd(flagGrouping, verbCmd, exportCmd)
 
 	return verbCmd
 }
