@@ -229,6 +229,7 @@ func (c *ClusterProvider) WaitForControlPlane(id *api.ClusterMeta, clientSet *ku
 	}
 }
 
+// UpdateClusterConfigForLogging calls UpdateClusterConfig to enable logging
 func (c *ClusterProvider) UpdateClusterConfigForLogging(cfg *api.ClusterConfig) error {
 	if len(cfg.EnableLogging) == 0 {
 		return nil
@@ -249,7 +250,6 @@ func (c *ClusterProvider) UpdateClusterConfigForLogging(cfg *api.ClusterConfig) 
 	if err := c.waitForUpdateToSucceed(cfg.Metadata.Name, output.Update); err != nil {
 		return err
 	}
-	logger.Info("enabled cluster logging for %v", cfg.EnableLogging)
 	return nil
 }
 

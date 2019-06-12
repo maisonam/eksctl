@@ -2,6 +2,7 @@ package update
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kris-nova/logger"
 	"github.com/pkg/errors"
@@ -48,6 +49,10 @@ func doUpdateClusterCmd(rc *cmdutils.ResourceCmd) error {
 	cfg := rc.ClusterConfig
 	meta := rc.ClusterConfig.Metadata
 
+	if err := api.SetClusterConfigDefaults(cfg); err != nil {
+		return err
+	}
+
 	printer := printers.NewJSONPrinter()
 	ctl := eks.New(rc.ProviderConfig, cfg)
 
@@ -65,7 +70,7 @@ func doUpdateClusterCmd(rc *cmdutils.ResourceCmd) error {
 	}
 
 	if rc.ClusterConfigFile != "" {
-		logger.Warning("NOTE: config file is only used for finding cluster name and region, deep cluster configuration changes are not yet implemented")
+		logger.Warning("NOTE: config file is only used for finding cluster name and region, VPC configuration changes are not yet implemented")
 	}
 
 	currentVersion := ctl.ControlPlaneVersion()
@@ -120,6 +125,19 @@ func doUpdateClusterCmd(rc *cmdutils.ResourceCmd) error {
 				}
 				logger.Success("a version update operation has been requested for cluster %q", cfg.Metadata.Name)
 				logger.Info("once it has been updated, %s", cfg.Metadata.Name, msgNodeGroupsAndAddons)
+			}
+		}
+	}
+
+	if len(cfg.EnableLogging) > 0 {
+		cmdutils.LogIntendedAction(rc.Plan, "update cluster configuration for logging (enabling facilities: %s)", strings.Join(cfg.EnableLogging, ", "))
+		if !rc.Plan {
+			if rc.Wait {
+				if err := ctl.UpdateClusterConfigForLogging(cfg); err != nil {
+					return err
+				}
+			} else {
+				logger.Warning("cannot update cluster configuration for logging, must run again with '--wait'")
 			}
 		}
 	}

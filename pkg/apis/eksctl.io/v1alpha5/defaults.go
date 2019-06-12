@@ -1,5 +1,6 @@
 package v1alpha5
 
+// SetClusterConfigDefaults will set defaults for a given cluster
 func SetClusterConfigDefaults(cfg *ClusterConfig) error {
 	logAll := []string{"api", "audit", "authenticator", "controllerManager", "scheduler"}
 	if len(cfg.EnableLogging) == 1 {

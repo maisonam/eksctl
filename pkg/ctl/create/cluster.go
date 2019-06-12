@@ -320,8 +320,11 @@ func doCreateCluster(resc *cmdutils.ResourceCmd, params *createClusterCmdParams)
 			params.kubeconfigPath = ""
 		}
 
-		if err := ctl.UpdateClusterConfigForLogging(cfg); err != nil {
-			return err
+		if len(cfg.EnableLogging) > 0 {
+			logger.Info("updating cluster configuration for logging (enabling facilities: %s)", strings.Join(cfg.EnableLogging, ", "))
+			if err := ctl.UpdateClusterConfigForLogging(cfg); err != nil {
+				return err
+			}
 		}
 
 		// create Kubernetes client
