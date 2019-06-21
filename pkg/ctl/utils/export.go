@@ -8,10 +8,9 @@ import (
 	"strings"
 
 	"github.com/kris-nova/logger"
-	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	api "github.com/weaveworks/eksctl/pkg/apis/eksctl.io/v1alpha4"
+	api "github.com/weaveworks/eksctl/pkg/apis/eksctl.io/v1alpha5"
 	"github.com/weaveworks/eksctl/pkg/ctl/cmdutils"
 	"github.com/weaveworks/eksctl/pkg/eks"
 	"github.com/weaveworks/eksctl/pkg/nodebootstrap"
@@ -23,65 +22,57 @@ var (
 	exportDir        string
 	offline          bool
 	withoutNodeGroup bool
+	output           string
 )
 
-func exportCmd(g *cmdutils.Grouping) *cobra.Command {
-	p := &api.ProviderConfig{}
+func exportCmd(rc *cmdutils.ResourceCmd) {
 	cfg := api.NewClusterConfig()
 	ng := cfg.NewNodeGroup()
+	rc.ClusterConfig = cfg
 
-	cmd := &cobra.Command{
-		Use:   "export",
-		Short: "Export CloudFormation stacks for a given cluster",
-		Run: func(cmd *cobra.Command, args []string) {
-			if err := doExport(p, cfg, cmdutils.GetNameArg(args), cmd); err != nil {
-				logger.Critical("%s\n", err.Error())
-				os.Exit(1)
-			}
-		},
-	}
+	rc.SetDescription("export", "Export CloudFormation stacks for a given cluster", "")
 
-	group := g.New(cmd)
+	rc.SetRunFuncWithNameArg(func() error {
+		return doExport(rc)
+	})
 
 	exampleClusterName := cmdutils.ClusterName("", "")
 	exampleNodeGroupName := cmdutils.NodeGroupName("", "")
 
-	group.InFlagSet("General", func(fs *pflag.FlagSet) {
+	rc.FlagSetGroup.InFlagSet("General", func(fs *pflag.FlagSet) {
 		fs.StringVarP(&cfg.Metadata.Name, "name", "n", "", fmt.Sprintf("EKS cluster name (generated if unspecified, e.g. %q)", exampleClusterName))
 		fs.StringVarP(&output, "output", "o", "yaml", "specifies the output format (valid option: json, yaml)")
 		fs.StringVar(&exportDir, "dir", defaultExportDir(), "the directory to save exported files into")
 		fs.BoolVar(&offline, "offline", offline, "disable AWS EC2 AMI lookup and other AWS API interactions")
 		cmdutils.AddVersionFlag(fs, cfg.Metadata, "")
-		cmdutils.AddRegionFlag(fs, p)
-		cmdutils.AddConfigFileFlag(&clusterConfigFile, fs)
+		cmdutils.AddRegionFlag(fs, rc.ProviderConfig)
+		cmdutils.AddConfigFileFlag(fs, &rc.ClusterConfigFile)
 	})
 
-	group.InFlagSet("Initial nodegroup", func(fs *pflag.FlagSet) {
+	rc.FlagSetGroup.InFlagSet("Initial nodegroup", func(fs *pflag.FlagSet) {
 		fs.StringVar(&ng.Name, "nodegroup-name", "", fmt.Sprintf("name of the nodegroup (generated if unspecified, e.g. %q)", exampleNodeGroupName))
 		fs.BoolVar(&withoutNodeGroup, "without-nodegroup", false, "if set, initial nodegroup will not be created")
 	})
 
-	cmdutils.AddCommonFlagsForAWS(group, p, true)
-
-	group.AddTo(cmd)
-
-	return cmd
+	cmdutils.AddCommonFlagsForAWS(rc.FlagSetGroup, rc.ProviderConfig, true)
 }
 
-func doExport(p *api.ProviderConfig, cfg *api.ClusterConfig, nameArg string, cmd *cobra.Command) error {
+func doExport(rc *cmdutils.ResourceCmd) error {
 	ngFilter := cmdutils.NewNodeGroupFilter()
 	ngFilter.ExcludeAll = withoutNodeGroup
 
-	if err := cmdutils.NewCreateClusterLoader(p, cfg, clusterConfigFile, nameArg, cmd, ngFilter).Load(); err != nil {
+	if err := cmdutils.NewCreateClusterLoader(rc, ngFilter).Load(); err != nil {
 		return err
 	}
+
+	cfg := rc.ClusterConfig
+	meta := rc.ClusterConfig.Metadata
+
+	ctl := eks.New(rc.ProviderConfig, cfg)
 
 	if err := ngFilter.ValidateNodeGroupsAndSetDefaults(cfg.NodeGroups); err != nil {
 		return err
 	}
-
-	meta := cfg.Metadata
-	ctl := eks.New(p, cfg)
 
 	if !offline {
 		if err := ctl.CheckAuth(); err != nil {
@@ -92,7 +83,7 @@ func doExport(p *api.ProviderConfig, cfg *api.ClusterConfig, nameArg string, cmd
 	}
 
 	if !ctl.IsSupportedRegion() {
-		return cmdutils.ErrUnsupportedRegion(p)
+		return cmdutils.ErrUnsupportedRegion(rc.ProviderConfig)
 	}
 	logger.Info("using region %s", meta.Region)
 
@@ -132,9 +123,9 @@ func doExport(p *api.ProviderConfig, cfg *api.ClusterConfig, nameArg string, cmd
 		}
 
 		if !cfg.HasAnySubnets() {
-			if len(cfg.AvailabilityZones) == 0 {
-				cfg.AvailabilityZones = api.DefaultAvailabilityZones
-			}
+			// if len(cfg.AvailabilityZones) == 0 {
+			// 	cfg.AvailabilityZones = api.DefaultAvailabilityZones
+			// }
 
 			if err := vpc.SetSubnets(cfg); err != nil {
 				return err
