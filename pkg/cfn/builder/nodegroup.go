@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+
 	"github.com/kris-nova/logger"
 
 	cfn "github.com/aws/aws-sdk-go/service/cloudformation"
@@ -52,10 +53,11 @@ func (n *NodeGroupResourceSet) AddAllResources() (err error) {
 
 	n.vpc = makeImportValue(n.clusterStackName, outputs.ClusterVPC)
 
-	n.userData, err = nodebootstrap.NewUserData(n.clusterSpec, n.spec)
+	userData, err := nodebootstrap.NewUserData(n.clusterSpec, n.spec)
 	if err != nil {
 		return err
 	}
+	n.userData = gfn.NewString(userData)
 
 	// Ensure MinSize is set, as it is required by the ASG cfn resource
 	if n.spec.MinSize == nil {
@@ -118,7 +120,7 @@ func (n *NodeGroupResourceSet) addResourcesForNodeGroup() error {
 			Ebs: &gfn.AWSEC2LaunchTemplate_Ebs{
 				VolumeSize: gfn.NewInteger(*volumeSize),
 				VolumeType: gfn.NewString(*n.spec.VolumeType),
-				Encrypted: gfn.NewBoolean(*n.spec.VolumeEncrypted),
+				Encrypted:  gfn.NewBoolean(*n.spec.VolumeEncrypted),
 			},
 		}}
 	}

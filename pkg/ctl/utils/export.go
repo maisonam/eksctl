@@ -13,7 +13,6 @@ import (
 	api "github.com/weaveworks/eksctl/pkg/apis/eksctl.io/v1alpha5"
 	"github.com/weaveworks/eksctl/pkg/ctl/cmdutils"
 	"github.com/weaveworks/eksctl/pkg/eks"
-	"github.com/weaveworks/eksctl/pkg/nodebootstrap"
 	"github.com/weaveworks/eksctl/pkg/printers"
 	"github.com/weaveworks/eksctl/pkg/vpc"
 )
@@ -161,10 +160,19 @@ func doExport(rc *cmdutils.ResourceCmd) error {
 
 	// Finalize node groups configuration
 	err := ngFilter.ForEach(cfg.NodeGroups, func(_ int, ng *api.NodeGroup) error {
-		// default override user data
-		if ng.OverrideUserData == nil {
-			logger.Info("setting default user data override")
-			ng.OverrideUserData = nodebootstrap.DefaultOverrideUserData(ng)
+		// prepend bootstrap commands for cluster discovery
+		{
+			commonFlags := fmt.Sprintf("--region=%s --name=%s", meta.Region, meta.Name)
+
+			ng.PreBootstrapCommands = append(ng.PreBootstrapCommands, "aws eks wait cluster-active "+commonFlags)
+
+			describeCluster := "aws eks describe-cluster --output=text " + commonFlags
+
+			ng.PreBootstrapCommands = append(ng.PreBootstrapCommands, describeCluster+" --query=cluster.certificateAuthority.data | base64 -d > /etc/eksctl/ca.crt")
+
+			ng.PreBootstrapCommands = append(ng.PreBootstrapCommands, fmt.Sprintf(
+				"kubectl --kubeconfig=/etc/eksctl/kubeconfig.yaml config set-cluster %s.%s.eksctl.io --server=\"$(%s --query=cluster.endpoint)\"",
+				meta.Name, meta.Region, describeCluster))
 		}
 
 		// resolve AMI
