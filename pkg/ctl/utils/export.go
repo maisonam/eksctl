@@ -60,6 +60,8 @@ func doExport(rc *cmdutils.ResourceCmd) error {
 	ngFilter := cmdutils.NewNodeGroupFilter()
 	ngFilter.ExcludeAll = withoutNodeGroup
 
+	// TODO: this should have a custom loader
+
 	if err := cmdutils.NewCreateClusterLoader(rc, ngFilter).Load(); err != nil {
 		return err
 	}
@@ -106,7 +108,7 @@ func doExport(rc *cmdutils.ResourceCmd) error {
 
 	// VPC and subnets
 	createOrImportVPC := func() error {
-
+		// TODO: should be possible to simplify this
 		subnetInfo := func() string {
 			return fmt.Sprintf("VPC (%s) and subnets (private:%v public:%v)",
 				cfg.VPC.ID, cfg.PrivateSubnetIDs(), cfg.PublicSubnetIDs())
@@ -122,6 +124,7 @@ func doExport(rc *cmdutils.ResourceCmd) error {
 		}
 
 		if !cfg.HasAnySubnets() {
+			// TODO: handle AZs properly (offline and not)
 			// if len(cfg.AvailabilityZones) == 0 {
 			// 	cfg.AvailabilityZones = api.DefaultAvailabilityZones
 			// }
@@ -175,6 +178,7 @@ func doExport(rc *cmdutils.ResourceCmd) error {
 				meta.Name, meta.Region, describeCluster))
 		}
 
+		// TODO: make sure SSH keys are handled correctly offline and not
 		// resolve AMI
 		if !offline {
 			if err := ctl.EnsureAMI(meta.Version, ng); err != nil {
@@ -229,6 +233,8 @@ func doExport(rc *cmdutils.ResourceCmd) error {
 		return err
 	}
 
+	// TODO: document steps one should use to deploy stacks
+
 	for name, template := range templates {
 		if err := saveObj(printer, name, template); err != nil {
 			return err
@@ -239,10 +245,11 @@ func doExport(rc *cmdutils.ResourceCmd) error {
 }
 
 func defaultExportDir() string {
-	return filepath.Join(".", "export")
+	return filepath.Join(".", "export") // TODO: name it by cluster name
 }
 
 func ensureDir(path string) error {
+	// TODO: should consider creating a tarball instead, so we are clear what we exporting is all there is
 	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return os.MkdirAll(path, os.ModePerm)
